@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Summarizer - Агент резюме веб-страниц</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .url-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result {
+            display: none;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .result-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px 10px 0 0;
+            font-weight: 600;
+        }
+
+        .result-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 0 0 10px 10px;
+            border: 1px solid #e1e5e9;
+            border-top: none;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #fcc;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .url-display {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e1e5e9;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .history-section {
+            margin-top: 40px;
+            text-align: left;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .history-title {
+            font-size: 1.5em;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .history-btn {
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .history-btn:hover {
+            background: #e9ecef;
+        }
+
+        .history-btn.danger {
+            background: #fee;
+            border-color: #fcc;
+            color: #c33;
+        }
+
+        .history-btn.danger:hover {
+            background: #fcc;
+        }
+
+        .history-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e1e5e9;
+            border-radius: 10px;
+        }
+
+        .history-item {
+            padding: 15px;
+            border-bottom: 1px solid #e1e5e9;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .history-item:hover {
+            background: #f8f9fa;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-item.success {
+            border-left: 4px solid #28a745;
+        }
+
+        .history-item.error {
+            border-left: 4px solid #dc3545;
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .history-url {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 14px;
+        }
+
+        .history-time {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .history-summary {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .history-error {
+            color: #dc3545;
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .history-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .stats-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e1e5e9;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e1e5e9;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .empty-history {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .history-controls {
+                flex-direction: column;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Page Summarizer</h1>
+            <p>Создайте краткое резюме любой веб-страницы в 3-5 предложений</p>
+        </div>
+
+        <form id="summarizeForm">
+            <div class="form-group">
+                <input 
+                    type="url" 
+                    id="urlInput" 
+                    class="url-input" 
+                    placeholder="Введите URL сайта (например: https://example.com)"
+                    required
+                >
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                🚀 Создать резюме
+            </button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Анализируем страницу и создаем резюме...</p>
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result" id="result">
+            <div class="result-header">
+                📋 Резюме страницы
+            </div>
+            <div class="result-content">
+                <div class="url-display" id="resultUrl"></div>
+                <div id="resultSummary"></div>
+                <div class="stats">
+                    <span id="charCount">0 символов</span>
+                    <span id="sentenceCount">0 предложений</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="stats-section" id="statsSection" style="display: none;">
+            <h3>📊 Статистика</h3>
+            <div class="stats-grid" id="statsGrid">
+                <!-- Статистика будет загружена динамически -->
+            </div>
+        </div>
+
+        <!-- История запросов -->
+        <div class="history-section" id="historySection" style="display: none;">
+            <div class="history-header">
+                <h3 class="history-title">📚 История запросов</h3>
+                <div class="history-controls">
+                    <button class="history-btn" onclick="loadStats()">📊 Статистика</button>
+                    <button class="history-btn" onclick="refreshHistory()">🔄 Обновить</button>
+                    <button class="history-btn danger" onclick="clearHistory()">🗑️ Очистить</button>
+                </div>
+            </div>
+            <div class="history-list" id="historyList">
+                <!-- История будет загружена динамически -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('summarizeForm');
+        const urlInput = document.getElementById('urlInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const error = document.getElementById('error');
+        const resultUrl = document.getElementById('resultUrl');
+        const resultSummary = document.getElementById('resultSummary');
+        const charCount = document.getElementById('charCount');
+        const sentenceCount = document.getElementById('sentenceCount');
+        const historySection = document.getElementById('historySection');
+        const historyList = document.getElementById('historyList');
+        const statsSection = document.getElementById('statsSection');
+        const statsGrid = document.getElementById('statsGrid');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const url = urlInput.value.trim();
+            if (!url) return;
+
+            // Показываем загрузку
+            setLoading(true);
+            hideError();
+            hideResult();
+
+            try {
+                const response = await fetch('/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showResult(data.url, data.summary);
+                } else {
+                    showError(data.error);
+                }
+            } catch (err) {
+                showError('Ошибка сети. Проверьте подключение к интернету.');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function setLoading(isLoading) {
+            submitBtn.disabled = isLoading;
+            loading.style.display = isLoading ? 'block' : 'none';
+            submitBtn.textContent = isLoading ? '⏳ Обрабатываем...' : '🚀 Создать резюме';
+        }
+
+        function showResult(url, summary) {
+            resultUrl.textContent = url;
+            resultSummary.textContent = summary;
+            
+            // Подсчитываем статистику
+            charCount.textContent = `${summary.length} символов`;
+            const sentences = summary.split(/[.!?]+/).filter(s => s.trim()).length;
+            sentenceCount.textContent = `${sentences} предложений`;
+            
+            result.style.display = 'block';
+            result.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = 'block';
+            // Очищаем поле ввода при ошибке
+            urlInput.value = '';
+        }
+
+        function hideError() {
+            error.style.display = 'none';
+        }
+
+        function hideResult() {
+            result.style.display = 'none';
+        }
+
+        // Фокус на поле ввода при загрузке
+        urlInput.focus();
+
+        // Загружаем историю при загрузке страницы
+        loadHistory();
+
+        // Функции для работы с историей
+        async function loadHistory() {
+            try {
+                const response = await fetch('/history');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayHistory(data.history);
+                    historySection.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Ошибка загрузки истории:', err);
+            }
+        }
+
+        function displayHistory(history) {
+            if (history.length === 0) {
+                historyList.innerHTML = '<div class="empty-history">История пуста</div>';
+                return;
+            }
+
+            historyList.innerHTML = history.map(item => `
+                <div class="history-item ${item.success ? 'success' : 'error'}" onclick="showHistoryItem(${item.id})">
+                    <div class="history-item-header">
+                        <div class="history-url">${item.url}</div>
+                        <div class="history-time">${formatTime(item.timestamp)}</div>
+                    </div>
+                    ${item.success ? 
+                        `<div class="history-summary">${item.summary.substring(0, 100)}${item.summary.length > 100 ? '...' : ''}</div>
+                         <div class="history-stats">
+                             <span>${item.char_count} символов</span>
+                             <span>${item.sentence_count} предложений</span>
+                         </div>` :
+                        `<div class="history-error">Ошибка: ${item.error}</div>`
+                    }
+                </div>
+            `).join('');
+        }
+
+        async function showHistoryItem(id) {
+            try {
+                const response = await fetch(`/history/${id}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const item = data.request;
+                    resultUrl.textContent = item.url;
+                    resultSummary.textContent = item.summary || 'Ошибка при создании резюме';
+                    charCount.textContent = `${item.char_count} символов`;
+                    sentenceCount.textContent = `${item.sentence_count} предложений`;
+                    result.style.display = 'block';
+                    result.scrollIntoView({ behavior: 'smooth' });
+                }
+            } catch (err) {
+                console.error('Ошибка загрузки элемента истории:', err);
+            }
+        }
+
+        async function refreshHistory() {
+            await loadHistory();
+        }
+
+        async function clearHistory() {
+            if (!confirm('Вы уверены, что хотите очистить всю историю?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/history/clear', { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    historyList.innerHTML = '<div class="empty-history">История очищена</div>';
+                    statsSection.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Ошибка очистки истории:', err);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayStats(data.stats);
+                    statsSection.style.display = 'block';
+                    statsSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            } catch (err) {
+                console.error('Ошибка загрузки статистики:', err);
+            }
+        }
+
+        function displayStats(stats) {
+            statsGrid.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${stats.total_requests}</div>
+                    <div class="stat-label">Всего запросов</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.successful_requests}</div>
+                    <div class="stat-label">Успешных</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.failed_requests}</div>
+                    <div class="stat-label">Ошибок</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.average_characters}</div>
+                    <div class="stat-label">Ср. символов</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.average_sentences}</div>
+                    <div class="stat-label">Ср. предложений</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${stats.total_characters}</div>
+                    <div class="stat-label">Всего символов</div>
+                </div>
+            `;
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Обновляем функцию showResult для автоматического обновления истории
+        const originalShowResult = showResult;
+        showResult = function(url, summary) {
+            originalShowResult(url, summary);
+            // Очищаем поле ввода после успешного создания резюме
+            urlInput.value = '';
+            // Обновляем историю после успешного создания резюме
+            setTimeout(loadHistory, 500);
+        };
+    </script>
+</body>
+</html> 

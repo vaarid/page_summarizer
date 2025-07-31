@@ -1,0 +1,11 @@
+# OpenAI API Configuration (через proxy)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Logtail Configuration (для логирования)
+LOGTAIL_TOKEN=your_logtail_token_here
+
+# Optional: Custom timeout for requests (in seconds)
+REQUEST_TIMEOUT=10
+
+# Optional: Custom user agent
+USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 

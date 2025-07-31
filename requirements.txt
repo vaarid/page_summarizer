@@ -1,0 +1,7 @@
+requests
+beautifulsoup4
+openai
+python-dotenv
+flask
+logtail-python
+gunicorn 

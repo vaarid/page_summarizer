@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup, Tag
 
 from openai_module import summarize_text
+from ollama_module import summarize_text as ollama_summarize_text
 
 # Настройка логирования
 logging.basicConfig(
@@ -177,10 +178,19 @@ def summarize_url(url: str) -> str:
         
         logger.info(f"Подготавливаю резюме для текста длиной {len(clean_text)} символов")
         
-        # Создаем резюме через OpenAI модуль
-        summary = summarize_text(clean_text)
+        # Создаем резюме через OpenAI модуль с fallback на Ollama
+        try:
+            summary = summarize_text(clean_text)
+            logger.info("Резюме успешно создано через OpenAI API")
+        except Exception as e:
+            logger.warning(f"Ошибка OpenAI API: {e}. Пробую Ollama...")
+            try:
+                summary = ollama_summarize_text(clean_text)
+                logger.info("Резюме успешно создано через Ollama")
+            except Exception as ollama_error:
+                logger.error(f"Ошибка Ollama API: {ollama_error}")
+                raise Exception(f"Не удалось создать резюме ни через OpenAI, ни через Ollama. OpenAI ошибка: {e}, Ollama ошибка: {ollama_error}")
         
-        logger.info("Резюме успешно создано")
         return summary
         
     except (requests.exceptions.RequestException, ValueError) as e:

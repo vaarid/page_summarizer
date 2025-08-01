@@ -7,17 +7,26 @@
 """
 
 import os
+import time
+import logging
 from typing import Optional
 from openai import OpenAI
+from openai import RateLimitError, APIError
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения
 load_dotenv()
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Константы
 SYSTEM_PROMPT = "Ты аналитик. Сформулируй суть текста в 3–5 предложениях на русском языке. Даже если исходный текст на другом языке, всегда отвечай на русском."
 MODEL_NAME = "gpt-4o"
 PROXY_BASE_URL = "https://api.proxyapi.ru/openai/v1"
+MAX_RETRIES = 3
+BASE_DELAY = 2  # секунды
 
 
 def _get_openai_client() -> OpenAI:
@@ -56,14 +65,50 @@ def summarize_text(text: str) -> str:
     """
     client = _get_openai_client()
     
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text}
-        ],
-        max_tokens=500,
-        temperature=0.3
-    )
-    
-    return response.choices[0].message.content.strip() 
+    for attempt in range(MAX_RETRIES):
+        try:
+            logger.info(f"Попытка {attempt + 1}/{MAX_RETRIES} создания резюме")
+            
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": text}
+                ],
+                max_tokens=500,
+                temperature=0.3
+            )
+            
+            return response.choices[0].message.content.strip()
+            
+        except RateLimitError as e:
+            logger.warning(f"Превышен лимит запросов (попытка {attempt + 1}/{MAX_RETRIES}): {e}")
+            
+            if attempt < MAX_RETRIES - 1:
+                delay = BASE_DELAY * (2 ** attempt)  # Экспоненциальная задержка
+                logger.info(f"Ожидание {delay} секунд перед повторной попыткой...")
+                time.sleep(delay)
+            else:
+                raise Exception(f"Превышен лимит запросов после {MAX_RETRIES} попыток. Попробуйте позже.")
+                
+        except APIError as e:
+            if "429" in str(e):
+                logger.warning(f"Ошибка 429 - Too many requests (попытка {attempt + 1}/{MAX_RETRIES}): {e}")
+                
+                if attempt < MAX_RETRIES - 1:
+                    delay = BASE_DELAY * (2 ** attempt)  # Экспоненциальная задержка
+                    logger.info(f"Ожидание {delay} секунд перед повторной попыткой...")
+                    time.sleep(delay)
+                else:
+                    raise Exception(f"Превышен лимит запросов после {MAX_RETRIES} попыток. Попробуйте позже.")
+            else:
+                logger.error(f"Ошибка API (попытка {attempt + 1}/{MAX_RETRIES}): {e}")
+                if attempt == MAX_RETRIES - 1:
+                    raise Exception(f"Ошибка API после {MAX_RETRIES} попыток: {e}")
+                time.sleep(BASE_DELAY)
+                
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка (попытка {attempt + 1}/{MAX_RETRIES}): {e}")
+            if attempt == MAX_RETRIES - 1:
+                raise Exception(f"Неожиданная ошибка после {MAX_RETRIES} попыток: {e}")
+            time.sleep(BASE_DELAY) 

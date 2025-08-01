@@ -8,6 +8,16 @@ OLLAMA_MODEL=llama3.2
 # Logtail Configuration (для логирования)
 LOGTAIL_TOKEN=your_logtail_token_here
 
+# Rate Limiting Configuration
+MAX_RETRIES=3
+BASE_DELAY=2
+MAX_REQUESTS_PER_MINUTE=8
+RATE_LIMIT_WINDOW=60
+
+# Cache Configuration
+CACHE_MAX_SIZE=200
+CACHE_TTL=3600
+
 # Optional: Custom timeout for requests (in seconds)
 REQUEST_TIMEOUT=10
 
@@ -19,7 +29,3 @@ FLASK_ENV=production
 FLASK_DEBUG=False
 HOST=0.0.0.0
 PORT=5000
-
-# Rate Limiting Configuration
-MAX_RETRIES=3
-BASE_DELAY=2 
